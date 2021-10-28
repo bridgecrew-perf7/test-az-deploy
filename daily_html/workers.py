@@ -1,12 +1,16 @@
 # built-in
 import datetime as dt
+from io import BytesIO
 import json
-from pathlib import Path
+import logging
 import os
+from pathlib import Path
+from time import sleep
 from random import randrange
 from typing import List, Optional, Tuple
 
 # External
+from azure.storage.blob import BlobServiceClient
 from jinja2 import Environment, FileSystemLoader
 from mypy_extensions import TypedDict
 import pyodbc  # type: ignore
@@ -29,8 +33,16 @@ class ConnectionManager:
         self.conn_string = os.environ['SERVERLESS_DB']
 
     def __enter__(self) -> pyodbc.Connection:
-        self.con = pyodbc.connect(self.conn_string)
-        return self.con
+        i = 1
+        while i < 7:
+            logging.info(f'Connecting to DB; time: {i}')
+            try:
+                self.con = pyodbc.connect(self.conn_string)
+            except pyodbc.DatabaseError:
+                sleep(10)
+                i += 1
+            else:
+                return self.con
 
     def __exit__(self, *args, **kwargs) -> None:
         self.con.close()
@@ -74,6 +86,13 @@ class ContentHandler:
 
 
 class HTMLMaker:
+    container_map = {
+        99: '99-fau',
+        100: '100-fau'
+    }
+    blob_service_client = BlobServiceClient.from_connection_string(
+        os.environ["HTML_ASA_CONN_STRING"]
+    )
     file_dir = Path(__file__).parent
     env = Environment(
         loader=FileSystemLoader(
@@ -85,7 +104,6 @@ class HTMLMaker:
     )
     tmplt = env.get_template('template.html')
     cur: Optional[pyodbc.Cursor] = None
-    out_dir: Optional[Path] = None
 
     def __init__(self, uid: int) -> None:
         self.uid = uid
@@ -93,10 +111,6 @@ class HTMLMaker:
     @classmethod
     def set_cursor(self, cur: pyodbc.Cursor) -> None:
         self.cur = cur
-
-    @classmethod
-    def set_out_dir(self, out_dir: Path) -> None:
-        self.out_dir = out_dir
 
     def make(self) -> None:
         agent = ContentHandler(self.uid)
@@ -106,11 +120,10 @@ class HTMLMaker:
             name=name,
             table_rows=table_rows
         )
-        outpath = self.out_dir.joinpath(  # type: ignore[union-attr]
-            str(self.uid), f"{len(table_rows)}.html"
+        blob_client = self.blob_service_client.get_blob_client(
+            container=self.container_map[self.uid],
+            blob=f'{len(table_rows)}.html'
         )
-        subfolder = outpath.parent
-        if not subfolder.exists():
-            subfolder.mkdir()
-        with open(outpath, mode='w', encoding='utf-8') as fw:
-            fw.write(html_content)
+        payload = BytesIO(html_content.encode('utf-8'))
+        blob_client.upload_blob(payload)
+        payload.close()
