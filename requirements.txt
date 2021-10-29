@@ -2,7 +2,7 @@
 # The Python Worker is managed by Azure Functions platform
 # Manually managing azure-functions-worker may cause unexpected issues
 
-azure-functions
-jinja2
-pyodbc
-azure-storage-blob
+azure-functions==1.7.2
+jinja2==3.0.2
+pyodbc==4.0.32
+azure-storage-blob==12.9.0
