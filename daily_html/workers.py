@@ -7,22 +7,11 @@ import os
 from pathlib import Path
 from time import sleep
 from random import randrange
-from typing import List, Optional, Tuple
 
 # External
 from azure.storage.blob import BlobServiceClient
 from jinja2 import Environment, FileSystemLoader
-from mypy_extensions import TypedDict
 import pyodbc  # type: ignore
-
-TableRow = TypedDict(
-    'TableRow',
-    {
-        'run_ts': str,
-        'value': int
-    }
-)
-TemplateInput = Tuple[int, str, List[TableRow]]
 
 
 class ConnectionManager:
@@ -54,8 +43,8 @@ class ContentHandler:
     def __init__(self, uid: int) -> None:
         self.uid = uid
 
-    def get_content(self, cur: pyodbc.Cursor) -> TemplateInput:
-        table_rows: List[TableRow] = []
+    def get_content(self, cur: pyodbc.Cursor):
+        table_rows = []
         cur.execute(
             "SELECT name, value FROM source WHERE uid = ?;",
             (self.uid)
@@ -103,7 +92,7 @@ class HTMLMaker:
         lstrip_blocks=True
     )
     tmplt = env.get_template('template.html')
-    cur: Optional[pyodbc.Cursor] = None
+    cur = None
 
     def __init__(self, uid: int) -> None:
         self.uid = uid
