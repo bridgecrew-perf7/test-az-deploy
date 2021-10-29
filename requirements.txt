@@ -6,3 +6,5 @@ azure-functions
 jinja2
 pyodbc
 azure-storage-blob
+mypy
+mypy-extensions
