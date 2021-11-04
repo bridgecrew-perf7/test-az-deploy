@@ -38,12 +38,11 @@ class ConnectionManager:
 
 
 class ContentHandler:
-    run_ts = dt.datetime.now()
-
     def __init__(self, uid: int) -> None:
         self.uid = uid
 
     def get_content(self, cur: pyodbc.Cursor):
+        run_ts = dt.datetime.now()
         table_rows = []
         cur.execute(
             "SELECT name, value FROM source WHERE uid = ?;",
@@ -53,7 +52,7 @@ class ContentHandler:
         name = row.name
         table_rows.append(
             {
-                'run_ts': self.run_ts.isoformat(sep=' '),
+                'run_ts': run_ts.isoformat(sep=' '),
                 'value': row.value + randrange(0, 21)
             }
         )
@@ -68,7 +67,7 @@ class ContentHandler:
         cur.execute(
             "INSERT INTO history (uid, run_ts, content_json)\n"
             "VALUES (?, ?, ?);",
-            (self.uid, self.run_ts, json.dumps(table_rows))
+            (self.uid, run_ts, json.dumps(table_rows))
         )
         cur.commit()
         return (self.uid, name, table_rows)
